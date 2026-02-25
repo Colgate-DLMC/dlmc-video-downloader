@@ -2,11 +2,18 @@ import tkinter as tk
 from tkinter import messagebox, filedialog, scrolledtext
 import subprocess
 import os
+import sys
 import threading
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-yt_dlp_path = os.path.join(script_dir, "bin", "yt-dlp")
-ffmpeg_path = os.path.join(script_dir, "bin", "ffmpeg")
+if getattr(sys, 'frozen', False):
+    # Running inside PyInstaller bundle
+    base_dir = sys._MEIPASS
+else:
+    # Running as script
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+yt_dlp_path = os.path.join(base_dir, "bin", "yt-dlp")
+ffmpeg_path = os.path.join(base_dir, "bin", "ffmpeg")
 ffmpeg_available = os.path.exists(ffmpeg_path) and os.access(ffmpeg_path, os.X_OK)
 
 def append_status(msg):

@@ -1,0 +1,18 @@
+# Build artifacts
+build/
+dist/
+pkg-stage/
+*.pkg
+
+# Binaries (downloaded at build time)
+bin/yt-dlp
+bin/ffmpeg
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# macOS
+.DS_Store
