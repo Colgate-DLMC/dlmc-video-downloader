@@ -23,7 +23,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='dlmc-dlp',
+    name='dlmc-video-downloader',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -38,14 +38,14 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name='dlmc-dlp',
+    name='dlmc-video-downloader',
 )
 
 app = BUNDLE(
     coll,
-    name='dlmc-dlp.app',
+    name='dlmc-video-downloader.app',
     icon='icon.icns',
-    bundle_identifier='com.dlmc.dlmc-dlp',
+    bundle_identifier='com.dlmc.video-downloader',
     info_plist={
         'CFBundleShortVersionString': '1.2',
         'NSHighResolutionCapable': True,

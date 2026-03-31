@@ -8,7 +8,7 @@ BIN_DIR="$SCRIPT_DIR/bin"
 DIST_DIR="$SCRIPT_DIR/dist"
 PKG_STAGE="$SCRIPT_DIR/pkg-stage"
 
-echo "=== dlmc-dlp build script ==="
+echo "=== DLMC Video Downloader build script ==="
 
 # -------------------------------------------------------
 # 1. Ensure PyInstaller is installed
@@ -76,10 +76,10 @@ echo ""
 # 3. Run PyInstaller
 # -------------------------------------------------------
 echo "Building .app with PyInstaller..."
-python3 -m PyInstaller --clean --noconfirm dlmc-dlp.spec
+python3 -m PyInstaller --clean --noconfirm dlmc-video-downloader.spec
 
 echo ""
-echo "Build complete: $DIST_DIR/dlmc-dlp.app"
+echo "Build complete: $DIST_DIR/dlmc-video-downloader.app"
 
 # -------------------------------------------------------
 # 4. Package into .pkg for JAMF
@@ -89,32 +89,32 @@ echo "Creating .pkg installer..."
 # Stage the .app for pkgbuild
 rm -rf "$PKG_STAGE"
 mkdir -p "$PKG_STAGE/Applications"
-cp -R "$DIST_DIR/dlmc-dlp.app" "$PKG_STAGE/Applications/"
+cp -R "$DIST_DIR/dlmc-video-downloader.app" "$PKG_STAGE/Applications/"
 
 # Create a component plist and disable bundle relocation so the .app
 # always installs to /Applications regardless of existing copies elsewhere.
-pkgbuild --analyze --root "$PKG_STAGE" /tmp/dlmc-dlp-component.plist
+pkgbuild --analyze --root "$PKG_STAGE" /tmp/dlmc-video-downloader-component.plist
 # Set BundleIsRelocatable to false
-/usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" /tmp/dlmc-dlp-component.plist
+/usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" /tmp/dlmc-video-downloader-component.plist
 
 pkgbuild \
     --root "$PKG_STAGE" \
-    --component-plist /tmp/dlmc-dlp-component.plist \
-    --identifier com.dlmc.dlmc-dlp \
+    --component-plist /tmp/dlmc-video-downloader-component.plist \
+    --identifier com.dlmc.video-downloader \
     --version 1.2 \
     --install-location / \
-    "$SCRIPT_DIR/dlmc-dlp.pkg"
+    "$SCRIPT_DIR/dlmc-video-downloader.pkg"
 
-rm -f /tmp/dlmc-dlp-component.plist
+rm -f /tmp/dlmc-video-downloader-component.plist
 
 # Clean up staging
 rm -rf "$PKG_STAGE"
 
 echo ""
 echo "=== Done ==="
-echo "App:     $DIST_DIR/dlmc-dlp.app"
-echo "Package: $SCRIPT_DIR/dlmc-dlp.pkg"
+echo "App:     $DIST_DIR/dlmc-video-downloader.app"
+echo "Package: $SCRIPT_DIR/dlmc-video-downloader.pkg"
 echo ""
 echo "To test the .pkg locally:"
-echo "  sudo installer -pkg dlmc-dlp.pkg -target /"
-echo "  open /Applications/dlmc-dlp.app"
+echo "  sudo installer -pkg dlmc-video-downloader.pkg -target /"
+echo "  open /Applications/dlmc-video-downloader.app"
