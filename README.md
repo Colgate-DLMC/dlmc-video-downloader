@@ -64,4 +64,4 @@ In short: only download content you have the right to download. This tool is pro
 
 ## License
 
-[MIT](LICENSE) — © 2025 Colgate-DLMC
+[MIT](LICENSE) — © 2026 Colgate-DLMC
