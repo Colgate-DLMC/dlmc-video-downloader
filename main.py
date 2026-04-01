@@ -12,9 +12,10 @@ else:
     # Running as script
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
-yt_dlp_path = os.path.join(base_dir, "bin", "yt-dlp")
-ffmpeg_path = os.path.join(base_dir, "bin", "ffmpeg")
-ffmpeg_available = os.path.exists(ffmpeg_path) and os.access(ffmpeg_path, os.X_OK)
+_bin_ext = ".exe" if sys.platform == "win32" else ""
+yt_dlp_path = os.path.join(base_dir, "bin", f"yt-dlp{_bin_ext}")
+ffmpeg_path = os.path.join(base_dir, "bin", f"ffmpeg{_bin_ext}")
+ffmpeg_available = os.path.exists(ffmpeg_path)
 
 def append_status(msg):
     status_box.configure(state='normal')
@@ -44,8 +45,12 @@ def run_download(url, output_dir):
 
     append_status(f"Starting download for: {url}\\n\\n")
 
+    kwargs = {}
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
     try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, **kwargs)
         for line in iter(process.stdout.readline, ''):
             append_status(line)
         process.stdout.close()
