@@ -10,14 +10,18 @@ PKG_STAGE="$SCRIPT_DIR/pkg-stage"
 
 echo "=== DLMC Video Downloader build script ==="
 
+export MACOSX_DEPLOYMENT_TARGET=10.13
+
 # -------------------------------------------------------
 # 1. Ensure PyInstaller is installed
 # -------------------------------------------------------
-if ! python3 -m PyInstaller --version &>/dev/null; then
+PYTHON=/opt/homebrew/bin/python3.13
+
+if ! $PYTHON -m PyInstaller --version &>/dev/null; then
     echo "Installing PyInstaller..."
-    pip3 install pyinstaller
+    $PYTHON -m pip install pyinstaller --break-system-packages
 fi
-echo "PyInstaller $(python3 -m PyInstaller --version)"
+echo "PyInstaller $($PYTHON -m PyInstaller --version)"
 
 # -------------------------------------------------------
 # 2. Download binaries if needed
@@ -76,7 +80,7 @@ echo ""
 # 3. Run PyInstaller
 # -------------------------------------------------------
 echo "Building .app with PyInstaller..."
-python3 -m PyInstaller --clean --noconfirm dlmc-video-downloader.spec
+$PYTHON -m PyInstaller --clean --noconfirm dlmc-video-downloader.spec
 
 echo ""
 echo "Build complete: $DIST_DIR/dlmc-video-downloader.app"

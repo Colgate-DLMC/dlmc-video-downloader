@@ -8,6 +8,7 @@ a = Analysis(
     datas=[
         ('bin/yt-dlp.exe', 'bin'),
         ('bin/ffmpeg.exe', 'bin'),
+        ('logo.png', '.'),
     ],
     hiddenimports=[],
     hookspath=[],

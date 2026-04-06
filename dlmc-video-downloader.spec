@@ -7,6 +7,7 @@ a = Analysis(
     datas=[
         ('bin/yt-dlp', 'bin'),
         ('bin/ffmpeg', 'bin'),
+        ('logo.png', '.'),
     ],
     hiddenimports=[],
     hookspath=[],
