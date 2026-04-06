@@ -78,7 +78,7 @@ if (Test-Path $inno) {
     Write-Host "Installer created: Output\dlmc-video-downloader-setup.exe"
 } else {
     Write-Host ""
-    Write-Host "Inno Setup not found — skipping installer packaging." -ForegroundColor Yellow
+    Write-Host "Inno Setup not found - skipping installer packaging." -ForegroundColor Yellow
     Write-Host "Install from https://jrsoftware.org/isinfo.php and re-run to produce a .exe installer."
     Write-Host "The raw app folder is at: $appDir"
 }
