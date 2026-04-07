@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=DLMC Video Downloader
-AppVersion=1.2
+AppVersion=3.1
 AppPublisher=Colgate-DLMC
 AppPublisherURL=https://github.com/Colgate-DLMC/dlmc-video-downloader
 AppSupportURL=https://github.com/Colgate-DLMC/dlmc-video-downloader/issues
