@@ -35,6 +35,21 @@ Progress is shown in the status window. Videos are saved as `.mp4`.
 
 ---
 
+## macOS Security Warning
+
+Because this app is not yet signed with an Apple Developer certificate, macOS Gatekeeper may block it on first launch with a message like *"cannot be opened because the developer cannot be verified."*
+
+**To open it anyway:**
+
+1. Open **Finder** and go to `/Applications`
+2. **Right-click** (or Control-click) on **DLMC Video Downloader**
+3. Select **Open** from the menu
+4. Click **Open** again in the dialog that appears
+
+You only need to do this once — after that, the app opens normally.
+
+---
+
 ## What's Inside
 
 This app bundles and wraps two open-source tools:

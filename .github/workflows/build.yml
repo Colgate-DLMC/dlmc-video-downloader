@@ -153,6 +153,17 @@ jobs:
             - **macOS:** Double-click the `.pkg` and follow the prompts
             - **Windows:** Run the `-setup.exe` installer
 
+            ### macOS Security Warning
+            macOS may block the app on first launch with a message like *"cannot be opened because the developer cannot be verified."*
+
+            To open it anyway:
+            1. Open **Finder** and go to `/Applications`
+            2. **Right-click** on **DLMC Video Downloader** and select **Open**
+            3. Click **Open** again in the dialog
+
+            You only need to do this once.
+
+            ---
             Powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org).
           files: |
             dlmc-video-downloader.pkg
