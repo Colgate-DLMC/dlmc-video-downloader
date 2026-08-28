@@ -16,3 +16,8 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# Certificates and keys — never commit these
+*.cer
+*.p12
+*.certSigningRequest
