@@ -86,6 +86,19 @@ jobs:
             --sign "Developer ID Application: Colgate University (SRB55JEPR8)" \
             dist/dlmc-video-downloader.app
 
+      - name: Notarize .app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          ditto -c -k --keepParent dist/dlmc-video-downloader.app /tmp/dlmc-video-downloader.zip
+          xcrun notarytool submit /tmp/dlmc-video-downloader.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "SRB55JEPR8" \
+            --wait
+          xcrun stapler staple dist/dlmc-video-downloader.app
+
       - name: Package .pkg
         run: |
           PKG_STAGE=$RUNNER_TEMP/pkg-stage
@@ -102,22 +115,6 @@ jobs:
             --version 3.1 \
             --install-location / \
             dlmc-video-downloader.pkg
-
-      - name: Notarize .pkg
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-        run: |
-          xcrun notarytool submit dlmc-video-downloader.pkg \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_PASSWORD" \
-            --team-id "SRB55JEPR8" \
-            --wait
-
-      - name: Staple notarization
-        run: |
-          sleep 30
-          xcrun stapler staple dlmc-video-downloader.pkg
 
       - name: Upload pkg artifact
         uses: actions/upload-artifact@v4
