@@ -115,7 +115,9 @@ jobs:
             --wait
 
       - name: Staple notarization
-        run: xcrun stapler staple dlmc-video-downloader.pkg
+        run: |
+          sleep 30
+          xcrun stapler staple dlmc-video-downloader.pkg
 
       - name: Upload pkg artifact
         uses: actions/upload-artifact@v4
