@@ -249,7 +249,7 @@ def show_about():
     messagebox.showinfo(
         "About DLMC Video Downloader",
         "DLMC Video Downloader\n"
-        "Version 3.1\n\n"
+        "Version 3.4.0\n\n"
         "A graphical interface for yt-dlp + ffmpeg.\n"
         "Download videos from YouTube and thousands\n"
         "of other sites.\n\n"

@@ -112,7 +112,7 @@ jobs:
             --root "$PKG_STAGE" \
             --component-plist /tmp/component.plist \
             --identifier com.dlmc.video-downloader \
-            --version 3.1 \
+            --version 3.4.0 \
             --install-location / \
             dlmc-video-downloader.pkg
 
