@@ -38,7 +38,7 @@ fi
 if [ ! -f "$BIN_DIR/yt-dlp" ]; then
     echo "Downloading yt-dlp (macOS universal binary)..."
     curl -L -o "$BIN_DIR/yt-dlp" \
-        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos_legacy"
     chmod +x "$BIN_DIR/yt-dlp"
     echo "yt-dlp downloaded."
 else
