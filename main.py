@@ -5,6 +5,8 @@ import os
 import sys
 import threading
 import shutil
+import logging
+import logging.handlers
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -30,18 +32,57 @@ else:
     )
 local_yt_dlp = os.path.join(_app_support, f"yt-dlp{_bin_ext}")
 
+# ---------------------------------------------------------------------------
+# Logging setup  (runs before the binary seed so we capture seed errors too)
+# ---------------------------------------------------------------------------
+_log_dir = _app_support  # same folder as local yt-dlp
+os.makedirs(_log_dir, exist_ok=True)
+_log_path = os.path.join(_log_dir, "dlmc-downloader.log")
+
+_log_handler = logging.handlers.RotatingFileHandler(
+    _log_path, maxBytes=2_000_000, backupCount=2, encoding="utf-8"
+)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    handlers=[_log_handler],
+)
+log = logging.getLogger("dlmc")
+
+# ---------------------------------------------------------------------------
+# Startup diagnostics
+# ---------------------------------------------------------------------------
+log.info("=== DLMC Video Downloader 3.5.0 starting ===")
+log.info("Platform: %s  Python: %s", sys.platform, sys.version.split()[0])
+log.info("Frozen: %s  base_dir: %s", getattr(sys, 'frozen', False), base_dir)
+log.info("bundled_yt_dlp : %s  exists=%s", bundled_yt_dlp, os.path.isfile(bundled_yt_dlp))
+log.info("local_yt_dlp   : %s  exists=%s", local_yt_dlp,   os.path.isfile(local_yt_dlp))
+
 # Seed the local copy from the bundled binary if it doesn't exist
 if not os.path.isfile(local_yt_dlp):
-    os.makedirs(_app_support, exist_ok=True)
     if os.path.isfile(bundled_yt_dlp):
-        shutil.copy2(bundled_yt_dlp, local_yt_dlp)
-        if sys.platform != "win32":
-            os.chmod(local_yt_dlp, 0o755)
+        try:
+            shutil.copy2(bundled_yt_dlp, local_yt_dlp)
+            if sys.platform != "win32":
+                os.chmod(local_yt_dlp, 0o755)
+            log.info("Seeded local yt-dlp from bundle")
+        except Exception as _seed_err:
+            log.error("Failed to seed local yt-dlp: %s", _seed_err, exc_info=True)
+    else:
+        log.warning("Bundled yt-dlp not found; cannot seed local copy")
 
 # Prefer the local copy; fall back to bundled
 yt_dlp_path = local_yt_dlp if os.path.isfile(local_yt_dlp) else bundled_yt_dlp
 ffmpeg_available = os.path.exists(ffmpeg_path)
 logo_path = os.path.join(base_dir, "logo.png")
+
+log.info("yt_dlp_path    : %s", yt_dlp_path)
+if os.path.isfile(yt_dlp_path):
+    _st = os.stat(yt_dlp_path)
+    log.info("yt_dlp perms   : %o  size: %d bytes", _st.st_mode & 0o777, _st.st_size)
+else:
+    log.error("yt_dlp_path does not exist: %s", yt_dlp_path)
+log.info("ffmpeg_path    : %s  available=%s", ffmpeg_path, ffmpeg_available)
 
 # ---------------------------------------------------------------------------
 # Root window & shared state
@@ -122,6 +163,8 @@ def set_download_state(in_progress):
 
 def run_single_download(url, output_dir, status_box, **kwargs):
     command = build_command(url, output_dir, **kwargs)
+    log.info("Download starting — url: %s", url)
+    log.info("Command: %s", command)
 
     if kwargs.get("mode") == "quick":
         if ffmpeg_available:
@@ -143,16 +186,20 @@ def run_single_download(url, output_dir, status_box, **kwargs):
             text=True, **popen_kwargs
         )
         for line in iter(process.stdout.readline, ''):
+            log.debug("yt-dlp: %s", line.rstrip())
             append_to_status(status_box, line)
         process.stdout.close()
         process.wait()
 
         if process.returncode == 0:
+            log.info("Download succeeded (exit 0) — url: %s", url)
             append_to_status(status_box, "\n✅ Download completed successfully.\n")
         else:
+            log.error("Download failed — exit code %d — url: %s", process.returncode, url)
             append_to_status(status_box,
                              f"\n❌ Download failed with exit code {process.returncode}.\n")
     except Exception as e:
+        log.error("Download exception: %s", e, exc_info=True)
         append_to_status(status_box, f"\n⚠️ Unexpected error: {str(e)}\n")
 
 
@@ -249,7 +296,7 @@ def show_about():
     messagebox.showinfo(
         "About DLMC Video Downloader",
         "DLMC Video Downloader\n"
-        "Version 3.4.0\n\n"
+        "Version 3.5.0\n\n"
         "A graphical interface for yt-dlp + ffmpeg.\n"
         "Download videos from YouTube and thousands\n"
         "of other sites.\n\n"
@@ -257,22 +304,39 @@ def show_about():
     )
 
 
+def show_log_location():
+    messagebox.showinfo(
+        "Log File Location",
+        f"Diagnostic log:\n\n{_log_path}\n\n"
+        "You can open this file in any text editor to see\n"
+        "startup diagnostics, download commands, and errors."
+    )
+
+
 def _run_yt_dlp_update(callback):
     def _worker():
+        log.info("yt-dlp update starting — binary: %s", yt_dlp_path)
         try:
             proc = subprocess.run(
                 [yt_dlp_path, "--update"],
                 capture_output=True, text=True, timeout=60,
             )
             output = (proc.stdout + proc.stderr).strip()
+            log.info("yt-dlp update exit code: %d", proc.returncode)
+            if proc.stdout.strip():
+                log.info("yt-dlp update stdout: %s", proc.stdout.strip())
+            if proc.stderr.strip():
+                log.warning("yt-dlp update stderr: %s", proc.stderr.strip())
             if proc.returncode == 0:
                 if "up to date" in output.lower() or "up-to-date" in output.lower():
                     callback("yt-dlp is up to date")
                 else:
                     callback("yt-dlp updated")
             else:
+                log.error("yt-dlp update failed (exit %d): %s", proc.returncode, output)
                 callback("yt-dlp update failed")
-        except Exception:
+        except Exception as e:
+            log.error("yt-dlp update exception: %s", e, exc_info=True)
             callback("yt-dlp update failed")
     threading.Thread(target=_worker, daemon=True).start()
 
@@ -364,6 +428,8 @@ def toggle_resolution(*_args):
 menubar = tk.Menu(root)
 help_menu = tk.Menu(menubar, tearoff=0)
 help_menu.add_command(label="Help", command=show_help)
+help_menu.add_separator()
+help_menu.add_command(label="View Log File Location…", command=show_log_location)
 help_menu.add_separator()
 help_menu.add_command(label="About", command=show_about)
 menubar.add_cascade(label="Help", menu=help_menu)

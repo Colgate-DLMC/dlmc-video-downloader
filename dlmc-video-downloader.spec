@@ -48,7 +48,7 @@ app = BUNDLE(
     icon='icon.icns',
     bundle_identifier='com.dlmc.video-downloader',
     info_plist={
-        'CFBundleShortVersionString': '3.4.0',
+        'CFBundleShortVersionString': '3.5.0',
         'NSHighResolutionCapable': True,
     },
 )

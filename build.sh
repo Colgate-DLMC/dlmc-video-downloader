@@ -105,7 +105,7 @@ pkgbuild \
     --root "$PKG_STAGE" \
     --component-plist /tmp/dlmc-video-downloader-component.plist \
     --identifier com.dlmc.video-downloader \
-    --version 3.4.0 \
+    --version 3.5.0 \
     --install-location / \
     "$SCRIPT_DIR/dlmc-video-downloader.pkg"
 
