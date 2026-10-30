@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, scrolledtext
-import subprocess
 import os
 import sys
 import threading
-import shutil
+import time
 import logging
 import logging.handlers
+import yt_dlp
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -18,26 +18,34 @@ else:
 
 _bin_ext = ".exe" if sys.platform == "win32" else ""
 
-bundled_yt_dlp = os.path.join(base_dir, "bin", f"yt-dlp{_bin_ext}")
 ffmpeg_path    = os.path.join(base_dir, "bin", f"ffmpeg{_bin_ext}")
+ffmpeg_available = os.path.exists(ffmpeg_path)
+logo_path      = os.path.join(base_dir, "logo.png")
 
-# User-local yt-dlp (writable, self-updatable)
+# Version — single source of truth from version.txt bundled with the app
+try:
+    with open(os.path.join(base_dir, 'version.txt')) as _vf:
+        APP_VERSION = _vf.read().strip()
+except Exception:
+    APP_VERSION = 'unknown'
+
+# App support dir — logs only (no local yt-dlp binary)
 if sys.platform == "win32":
-    _app_support = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")),
-                                "DLMC Video Downloader", "bin")
+    _app_support = os.path.join(
+        os.environ.get("APPDATA", os.path.expanduser("~")),
+        "DLMC Video Downloader"
+    )
 else:
     _app_support = os.path.join(
         os.path.expanduser("~"), "Library", "Application Support",
-        "DLMC Video Downloader", "bin"
+        "DLMC Video Downloader"
     )
-local_yt_dlp = os.path.join(_app_support, f"yt-dlp{_bin_ext}")
+os.makedirs(_app_support, exist_ok=True)
 
 # ---------------------------------------------------------------------------
-# Logging setup  (runs before the binary seed so we capture seed errors too)
+# Logging
 # ---------------------------------------------------------------------------
-_log_dir = _app_support  # same folder as local yt-dlp
-os.makedirs(_log_dir, exist_ok=True)
-_log_path = os.path.join(_log_dir, "dlmc-downloader.log")
+_log_path = os.path.join(_app_support, "dlmc-downloader.log")
 
 _log_handler = logging.handlers.RotatingFileHandler(
     _log_path, maxBytes=2_000_000, backupCount=2, encoding="utf-8"
@@ -49,40 +57,11 @@ logging.basicConfig(
 )
 log = logging.getLogger("dlmc")
 
-# ---------------------------------------------------------------------------
-# Startup diagnostics
-# ---------------------------------------------------------------------------
-log.info("=== DLMC Video Downloader 3.5.0 starting ===")
+log.info("=== DLMC Video Downloader %s starting ===", APP_VERSION)
 log.info("Platform: %s  Python: %s", sys.platform, sys.version.split()[0])
 log.info("Frozen: %s  base_dir: %s", getattr(sys, 'frozen', False), base_dir)
-log.info("bundled_yt_dlp : %s  exists=%s", bundled_yt_dlp, os.path.isfile(bundled_yt_dlp))
-log.info("local_yt_dlp   : %s  exists=%s", local_yt_dlp,   os.path.isfile(local_yt_dlp))
-
-# Seed the local copy from the bundled binary if it doesn't exist
-if not os.path.isfile(local_yt_dlp):
-    if os.path.isfile(bundled_yt_dlp):
-        try:
-            shutil.copy2(bundled_yt_dlp, local_yt_dlp)
-            if sys.platform != "win32":
-                os.chmod(local_yt_dlp, 0o755)
-            log.info("Seeded local yt-dlp from bundle")
-        except Exception as _seed_err:
-            log.error("Failed to seed local yt-dlp: %s", _seed_err, exc_info=True)
-    else:
-        log.warning("Bundled yt-dlp not found; cannot seed local copy")
-
-# Prefer the local copy; fall back to bundled
-yt_dlp_path = local_yt_dlp if os.path.isfile(local_yt_dlp) else bundled_yt_dlp
-ffmpeg_available = os.path.exists(ffmpeg_path)
-logo_path = os.path.join(base_dir, "logo.png")
-
-log.info("yt_dlp_path    : %s", yt_dlp_path)
-if os.path.isfile(yt_dlp_path):
-    _st = os.stat(yt_dlp_path)
-    log.info("yt_dlp perms   : %o  size: %d bytes", _st.st_mode & 0o777, _st.st_size)
-else:
-    log.error("yt_dlp_path does not exist: %s", yt_dlp_path)
-log.info("ffmpeg_path    : %s  available=%s", ffmpeg_path, ffmpeg_available)
+log.info("yt-dlp version: %s", yt_dlp.version.__version__)
+log.info("ffmpeg_path: %s  available=%s", ffmpeg_path, ffmpeg_available)
 
 # ---------------------------------------------------------------------------
 # Root window & shared state
@@ -100,52 +79,46 @@ all_download_buttons = []
 # Helper functions
 # ---------------------------------------------------------------------------
 
-def build_command(url, output_dir, mode="quick", resolution="best",
-                  audio_only=False, subtitles=False):
-    """Build the yt-dlp command list."""
-    if audio_only:
-        command = [
-            yt_dlp_path,
-            "-f", "bestaudio",
-            "--extract-audio", "--audio-format", "mp3",
-            "-o", os.path.join(output_dir, "%(title)s.%(ext)s"),
-            url,
-        ]
-    else:
-        res_map = {
-            "best":       "bestvideo+bestaudio",
-            "720p":       "bestvideo[height<=720]+bestaudio",
-            "1080p":      "bestvideo[height<=1080]+bestaudio",
-            "2K (1440p)": "bestvideo[height<=1440]+bestaudio",
-            "4K (2160p)": "bestvideo[height<=2160]+bestaudio",
-        }
-        fmt = res_map.get(resolution, "bestvideo+bestaudio")
-
-        if mode == "quick" and not ffmpeg_available:
-            command = [
-                yt_dlp_path,
-                "-f", "best[ext=mp4]/best",
-                "-o", os.path.join(output_dir, "%(title)s.%(ext)s"),
-                url,
-            ]
-        else:
-            command = [
-                yt_dlp_path,
-                "-f", fmt,
-                "--merge-output-format", "mp4",
-                "-o", os.path.join(output_dir, "%(title)s.%(ext)s"),
-                url,
-            ]
+def build_ytdlp_opts(output_dir, mode="quick", resolution="best",
+                     audio_only=False, subtitles=False):
+    opts = {
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': True,
+        'no_warnings': False,
+        'noprogress': True,
+    }
 
     if ffmpeg_available:
-        command.insert(1, "--ffmpeg-location")
-        command.insert(2, ffmpeg_path)
+        opts['ffmpeg_location'] = ffmpeg_path
+
+    if audio_only:
+        opts['format'] = 'bestaudio'
+        opts['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+        }]
+    else:
+        res_map = {
+            'best':       'bestvideo+bestaudio',
+            '720p':       'bestvideo[height<=720]+bestaudio',
+            '1080p':      'bestvideo[height<=1080]+bestaudio',
+            '2K (1440p)': 'bestvideo[height<=1440]+bestaudio',
+            '4K (2160p)': 'bestvideo[height<=2160]+bestaudio',
+        }
+        fmt = res_map.get(resolution, 'bestvideo+bestaudio')
+
+        if mode == 'quick' and not ffmpeg_available:
+            opts['format'] = 'best[ext=mp4]/best'
+        else:
+            opts['format'] = fmt
+            opts['merge_output_format'] = 'mp4'
 
     if subtitles and not audio_only:
-        command.extend(["--write-subs", "--sub-langs", "en.*,en",
-                         "--convert-subs", "srt"])
+        opts['writesubtitles'] = True
+        opts['subtitleslangs'] = ['en.*', 'en']
+        opts['convertsubtitles'] = 'srt'
 
-    return command
+    return opts
 
 
 def append_to_status(status_box, msg):
@@ -162,9 +135,10 @@ def set_download_state(in_progress):
 
 
 def run_single_download(url, output_dir, status_box, **kwargs):
-    command = build_command(url, output_dir, **kwargs)
+    opts = build_ytdlp_opts(output_dir, **kwargs)
     log.info("Download starting — url: %s", url)
-    log.info("Command: %s", command)
+    log.info("Options: %s", {k: v for k, v in opts.items()
+                              if k not in ('logger', 'progress_hooks')})
 
     if kwargs.get("mode") == "quick":
         if ffmpeg_available:
@@ -176,31 +150,57 @@ def run_single_download(url, output_dir, status_box, **kwargs):
 
     append_to_status(status_box, f"Starting download for: {url}\n\n")
 
-    popen_kwargs = {}
-    if sys.platform == "win32":
-        popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    class _Logger:
+        def debug(self, msg):
+            log.debug("yt-dlp: %s", msg)
+
+        def info(self, msg):
+            log.info("yt-dlp: %s", msg)
+            append_to_status(status_box, msg + "\n")
+
+        def warning(self, msg):
+            log.warning("yt-dlp: %s", msg)
+            append_to_status(status_box, f"⚠️ {msg}\n")
+
+        def error(self, msg, *, is_error=True):
+            log.error("yt-dlp: %s", msg)
+            append_to_status(status_box, f"❌ {msg}\n")
+
+    _last_pct = [None]
+    _last_ts   = [0.0]
+
+    def _progress_hook(d):
+        if d['status'] == 'downloading':
+            now = time.monotonic()
+            if now - _last_ts[0] >= 0.5:
+                _last_ts[0] = now
+                pct   = d.get('_percent_str', '').strip()
+                speed = d.get('_speed_str', '').strip()
+                eta   = d.get('_eta_str', '').strip()
+                if pct and pct != _last_pct[0]:
+                    _last_pct[0] = pct
+                    append_to_status(status_box,
+                                     f"  {pct}  {speed}  ETA {eta}\n")
+        elif d['status'] == 'finished':
+            fname = os.path.basename(d.get('filename', ''))
+            if fname:
+                append_to_status(status_box, f"Merging: {fname}\n")
+
+    opts['logger'] = _Logger()
+    opts['progress_hooks'] = [_progress_hook]
 
     try:
-        process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, **popen_kwargs
-        )
-        for line in iter(process.stdout.readline, ''):
-            log.debug("yt-dlp: %s", line.rstrip())
-            append_to_status(status_box, line)
-        process.stdout.close()
-        process.wait()
-
-        if process.returncode == 0:
-            log.info("Download succeeded (exit 0) — url: %s", url)
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ret = ydl.download([url])
+        if ret == 0:
+            log.info("Download succeeded — url: %s", url)
             append_to_status(status_box, "\n✅ Download completed successfully.\n")
         else:
-            log.error("Download failed — exit code %d — url: %s", process.returncode, url)
-            append_to_status(status_box,
-                             f"\n❌ Download failed with exit code {process.returncode}.\n")
+            log.error("Download failed (ret=%d) — url: %s", ret, url)
+            append_to_status(status_box, "\n❌ Download failed.\n")
     except Exception as e:
         log.error("Download exception: %s", e, exc_info=True)
-        append_to_status(status_box, f"\n⚠️ Unexpected error: {str(e)}\n")
+        append_to_status(status_box, f"\n⚠️ Error: {str(e)}\n")
 
 
 def choose_directory():
@@ -229,7 +229,7 @@ def clear_status(status_box):
 def show_help():
     win = tk.Toplevel(root)
     win.title("DLMC Video Downloader Help")
-    win.geometry("560x500")
+    win.geometry("560x480")
     win.resizable(True, True)
     win.minsize(400, 320)
 
@@ -272,11 +272,6 @@ OUTPUT FOLDER
 All tabs share the same output folder. Click "Choose Output Folder" to select
 where downloaded files are saved. The path is shown in red when selected.
 
-UPDATING yt-dlp
-DLMC Video Downloader automatically checks for a yt-dlp update each time the
-app launches. The result briefly appears in the title bar for a few seconds.
-You can also update manually at any time by clicking "Update yt-dlp".
-
 TIPS
   • If a download fails, check that the URL is publicly accessible and that
     the site is supported by yt-dlp.
@@ -295,8 +290,8 @@ TIPS
 def show_about():
     messagebox.showinfo(
         "About DLMC Video Downloader",
-        "DLMC Video Downloader\n"
-        "Version 3.5.0\n\n"
+        f"DLMC Video Downloader\n"
+        f"Version {APP_VERSION}\n\n"
         "A graphical interface for yt-dlp + ffmpeg.\n"
         "Download videos from YouTube and thousands\n"
         "of other sites.\n\n"
@@ -309,36 +304,8 @@ def show_log_location():
         "Log File Location",
         f"Diagnostic log:\n\n{_log_path}\n\n"
         "You can open this file in any text editor to see\n"
-        "startup diagnostics, download commands, and errors."
+        "startup diagnostics, download output, and errors."
     )
-
-
-def _run_yt_dlp_update(callback):
-    def _worker():
-        log.info("yt-dlp update starting — binary: %s", yt_dlp_path)
-        try:
-            proc = subprocess.run(
-                [yt_dlp_path, "--update"],
-                capture_output=True, text=True, timeout=60,
-            )
-            output = (proc.stdout + proc.stderr).strip()
-            log.info("yt-dlp update exit code: %d", proc.returncode)
-            if proc.stdout.strip():
-                log.info("yt-dlp update stdout: %s", proc.stdout.strip())
-            if proc.stderr.strip():
-                log.warning("yt-dlp update stderr: %s", proc.stderr.strip())
-            if proc.returncode == 0:
-                if "up to date" in output.lower() or "up-to-date" in output.lower():
-                    callback("yt-dlp is up to date")
-                else:
-                    callback("yt-dlp updated")
-            else:
-                log.error("yt-dlp update failed (exit %d): %s", proc.returncode, output)
-                callback("yt-dlp update failed")
-        except Exception as e:
-            log.error("yt-dlp update exception: %s", e, exc_info=True)
-            callback("yt-dlp update failed")
-    threading.Thread(target=_worker, daemon=True).start()
 
 # ---------------------------------------------------------------------------
 # Tab action functions
@@ -451,32 +418,16 @@ except Exception:
     pass  # App works without logo
 
 # ---------------------------------------------------------------------------
-# Shared output folder row
+# Shared output folder — LabelFrame for visual prominence
 # ---------------------------------------------------------------------------
-folder_frame = ttk.Frame(root)
-folder_frame.pack(fill="x", padx=15, pady=(0, 5))
+folder_frame = ttk.LabelFrame(root, text="Output Folder", padding=(10, 6))
+folder_frame.pack(fill="x", padx=15, pady=(0, 8))
 
 ttk.Button(folder_frame, text="Choose Output Folder",
-           command=choose_directory).pack(side="left")
+           command=choose_directory).pack(side="left", ipadx=14, ipady=4)
 ttk.Label(folder_frame, textvariable=output_path,
-          foreground="red").pack(side="left", padx=(10, 0), fill="x", expand=True)
-
-
-def _manual_update_yt_dlp():
-    update_btn.configure(state="disabled")
-
-    def _on_result(msg):
-        def _show():
-            messagebox.showinfo("yt-dlp Update", msg)
-            update_btn.configure(state="normal")
-        root.after(0, _show)
-
-    _run_yt_dlp_update(_on_result)
-
-
-update_btn = ttk.Button(folder_frame, text="Update yt-dlp",
-                        command=_manual_update_yt_dlp)
-update_btn.pack(side="right")
+          foreground="red", anchor="w").pack(side="left", padx=(14, 0),
+                                              fill="x", expand=True)
 
 # ---------------------------------------------------------------------------
 # Notebook (tabs)
@@ -561,23 +512,6 @@ ttk.Label(multi_tab, text="Status:").pack(pady=(5, 0))
 multi_status = scrolledtext.ScrolledText(
     multi_tab, width=80, height=8, state='disabled', wrap='word')
 multi_status.pack(padx=10, pady=(0, 10), fill="both", expand=True)
-
-# ---------------------------------------------------------------------------
-# Auto-update yt-dlp on launch
-# ---------------------------------------------------------------------------
-DEFAULT_TITLE = "DLMC Video Downloader"
-
-
-def _auto_update_on_launch():
-    def _on_result(msg):
-        def _show_title():
-            root.title(f"{DEFAULT_TITLE} — {msg}")
-            root.after(5000, lambda: root.title(DEFAULT_TITLE))
-        root.after(0, _show_title)
-    _run_yt_dlp_update(_on_result)
-
-
-root.after(500, _auto_update_on_launch)
 
 # ---------------------------------------------------------------------------
 root.mainloop()

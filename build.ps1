@@ -9,10 +9,11 @@ Set-Location $ScriptDir
 $BinDir  = Join-Path $ScriptDir "bin"
 $DistDir = Join-Path $ScriptDir "dist"
 
-Write-Host "=== DLMC Video Downloader - Windows Build ===" -ForegroundColor Cyan
+$Version = (Get-Content version.txt -Raw).Trim()
+Write-Host "=== DLMC Video Downloader - Windows Build v$Version ===" -ForegroundColor Cyan
 
 # -------------------------------------------------------
-# 1. Ensure PyInstaller is installed
+# 1. Ensure Python dependencies are installed
 # -------------------------------------------------------
 try {
     python -m PyInstaller --version | Out-Null
@@ -23,28 +24,20 @@ try {
 $pyiVersion = python -m PyInstaller --version
 Write-Host "PyInstaller $pyiVersion"
 
+Write-Host "Installing/upgrading yt-dlp..."
+pip install --upgrade yt-dlp
+$ytdlpVersion = python -c "import yt_dlp; print(yt_dlp.version.__version__)"
+Write-Host "yt-dlp $ytdlpVersion"
+
 # -------------------------------------------------------
-# 2. Download binaries if needed
+# 2. Download ffmpeg if needed
 # -------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
-# --- yt-dlp ---
-$ytdlpPath = Join-Path $BinDir "yt-dlp.exe"
-if (-Not (Test-Path $ytdlpPath)) {
-    Write-Host "Downloading yt-dlp (Windows x64)..."
-    Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" `
-                      -OutFile $ytdlpPath
-    Write-Host "yt-dlp downloaded."
-} else {
-    Write-Host "yt-dlp already present."
-}
-
-# --- ffmpeg ---
 $ffmpegPath = Join-Path $BinDir "ffmpeg.exe"
 if (-Not (Test-Path $ffmpegPath)) {
     Write-Host "Downloading ffmpeg (Windows x64)..."
     $ffmpegZip = Join-Path $env:TEMP "ffmpeg.zip"
-    # Gyan.dev provides reliable static Windows builds
     Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" `
                       -OutFile $ffmpegZip
     $ffmpegExtract = Join-Path $env:TEMP "ffmpeg-extract"
@@ -73,6 +66,11 @@ Write-Host "Build complete: $appDir"
 # -------------------------------------------------------
 $inno = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 if (Test-Path $inno) {
+    Write-Host "Injecting version $Version into installer script..."
+    (Get-Content dlmc-video-downloader.iss) `
+        -replace 'AppVersion=.*', "AppVersion=$Version" |
+        Set-Content dlmc-video-downloader.iss
+
     Write-Host "Packaging installer with Inno Setup..."
     & $inno "dlmc-video-downloader.iss"
     Write-Host "Installer created: Output\dlmc-video-downloader-setup.exe"

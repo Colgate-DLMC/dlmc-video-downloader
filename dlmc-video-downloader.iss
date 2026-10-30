@@ -1,9 +1,10 @@
 ; Inno Setup script — DLMC Video Downloader (Windows)
 ; Produces: Output\dlmc-video-downloader-setup.exe
+; NOTE: AppVersion is overwritten by build.ps1 and the GitHub Actions workflow.
 
 [Setup]
 AppName=DLMC Video Downloader
-AppVersion=3.5.0
+AppVersion=26.10.3
 AppPublisher=Colgate-DLMC
 AppPublisherURL=https://github.com/Colgate-DLMC/dlmc-video-downloader
 AppSupportURL=https://github.com/Colgate-DLMC/dlmc-video-downloader/issues

@@ -22,16 +22,18 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+      - name: Read version
+        id: version
+        run: echo "version=$(cat version.txt)" >> $GITHUB_OUTPUT
 
-      - name: Download yt-dlp and ffmpeg
+      - name: Install Python dependencies
+        run: |
+          pip install pyinstaller
+          pip install yt-dlp
+
+      - name: Download ffmpeg
         run: |
           mkdir -p bin
-          curl -L -o bin/yt-dlp \
-            "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos_legacy"
-          chmod +x bin/yt-dlp
-
           curl -L -o /tmp/ffmpeg.zip \
             "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/snapshot/ffmpeg.zip"
           unzip -o /tmp/ffmpeg.zip -d /tmp/ffmpeg-extract
@@ -110,9 +112,10 @@ jobs:
 
           pkgbuild \
             --root "$PKG_STAGE" \
+            --scripts scripts \
             --component-plist /tmp/component.plist \
             --identifier com.dlmc.video-downloader \
-            --version 3.5.0 \
+            --version ${{ steps.version.outputs.version }} \
             --install-location / \
             dlmc-video-downloader.pkg
 
@@ -137,22 +140,27 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
-
-      - name: Download yt-dlp
+      - name: Install Python dependencies
         run: |
-          New-Item -ItemType Directory -Force -Path bin | Out-Null
-          Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" `
-                            -OutFile bin\yt-dlp.exe
+          pip install pyinstaller
+          pip install yt-dlp
 
       - name: Download ffmpeg
         run: |
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
           Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" `
                             -OutFile "$env:TEMP\ffmpeg.zip"
           Expand-Archive -Path "$env:TEMP\ffmpeg.zip" -DestinationPath "$env:TEMP\ffmpeg-extract" -Force
           $ffmpegBin = Get-ChildItem -Path "$env:TEMP\ffmpeg-extract" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
           Copy-Item $ffmpegBin.FullName bin\ffmpeg.exe
+
+      - name: Inject version into ISS
+        run: |
+          $ver = (Get-Content version.txt -Raw).Trim()
+          (Get-Content dlmc-video-downloader.iss) `
+            -replace 'AppVersion=.*', "AppVersion=$ver" |
+            Set-Content dlmc-video-downloader.iss
+        shell: pwsh
 
       - name: Build with PyInstaller
         run: python -m PyInstaller --clean --noconfirm dlmc-video-downloader-windows.spec

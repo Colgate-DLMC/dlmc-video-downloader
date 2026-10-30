@@ -8,45 +8,32 @@ BIN_DIR="$SCRIPT_DIR/bin"
 DIST_DIR="$SCRIPT_DIR/dist"
 PKG_STAGE="$SCRIPT_DIR/pkg-stage"
 
-echo "=== DLMC Video Downloader build script ==="
+VERSION="$(cat version.txt)"
+
+echo "=== DLMC Video Downloader build script — v${VERSION} ==="
 
 export MACOSX_DEPLOYMENT_TARGET=10.13
 
 # -------------------------------------------------------
-# 1. Ensure PyInstaller is installed
+# 1. Ensure Python dependencies are installed
 # -------------------------------------------------------
 PYTHON=/opt/homebrew/bin/python3.13
 
 if ! $PYTHON -m PyInstaller --version &>/dev/null; then
     echo "Installing PyInstaller..."
-    $PYTHON -m pip install pyinstaller --break-system-packages
+    $PYTHON -m pip install pyinstaller
 fi
 echo "PyInstaller $($PYTHON -m PyInstaller --version)"
 
+echo "Installing/upgrading yt-dlp..."
+$PYTHON -m pip install --upgrade yt-dlp
+echo "yt-dlp $($PYTHON -c 'import yt_dlp; print(yt_dlp.version.__version__)')"
+
 # -------------------------------------------------------
-# 2. Download binaries if needed
+# 2. Download ffmpeg if needed
 # -------------------------------------------------------
 mkdir -p "$BIN_DIR"
 
-# --- yt-dlp ---
-# Remove old directory-based yt-dlp if it exists
-if [ -d "$BIN_DIR/yt-dlp" ]; then
-    echo "Removing old yt-dlp directory..."
-    rm -rf "$BIN_DIR/yt-dlp"
-fi
-
-if [ ! -f "$BIN_DIR/yt-dlp" ]; then
-    echo "Downloading yt-dlp (macOS universal binary)..."
-    curl -L -o "$BIN_DIR/yt-dlp" \
-        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos_legacy"
-    chmod +x "$BIN_DIR/yt-dlp"
-    echo "yt-dlp downloaded."
-else
-    echo "yt-dlp binary already present."
-fi
-
-# --- ffmpeg ---
-# Check if existing ffmpeg is arm64-compatible
 NEED_FFMPEG=false
 if [ ! -f "$BIN_DIR/ffmpeg" ]; then
     NEED_FFMPEG=true
@@ -56,8 +43,7 @@ elif ! file "$BIN_DIR/ffmpeg" | grep -q "arm64"; then
 fi
 
 if [ "$NEED_FFMPEG" = true ]; then
-    echo "Downloading ffmpeg (macOS arm64 binary)..."
-    # martin-riedl.de provides signed arm64 static builds for macOS
+    echo "Downloading ffmpeg (macOS arm64)..."
     curl -L -o /tmp/ffmpeg.zip \
         "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/snapshot/ffmpeg.zip"
     unzip -o /tmp/ffmpeg.zip -d /tmp/ffmpeg-extract
@@ -66,13 +52,11 @@ if [ "$NEED_FFMPEG" = true ]; then
     chmod +x "$BIN_DIR/ffmpeg"
     echo "ffmpeg downloaded."
 else
-    echo "ffmpeg binary already present and arm64-compatible."
+    echo "ffmpeg already present and arm64-compatible."
 fi
 
-# Verify binaries
 echo ""
 echo "Binary check:"
-file "$BIN_DIR/yt-dlp"
 file "$BIN_DIR/ffmpeg"
 echo ""
 
@@ -90,28 +74,23 @@ echo "Build complete: $DIST_DIR/dlmc-video-downloader.app"
 # -------------------------------------------------------
 echo "Creating .pkg installer..."
 
-# Stage the .app for pkgbuild
 rm -rf "$PKG_STAGE"
 mkdir -p "$PKG_STAGE/Applications"
 cp -R "$DIST_DIR/dlmc-video-downloader.app" "$PKG_STAGE/Applications/"
 
-# Create a component plist and disable bundle relocation so the .app
-# always installs to /Applications regardless of existing copies elsewhere.
 pkgbuild --analyze --root "$PKG_STAGE" /tmp/dlmc-video-downloader-component.plist
-# Set BundleIsRelocatable to false
 /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" /tmp/dlmc-video-downloader-component.plist
 
 pkgbuild \
     --root "$PKG_STAGE" \
+    --scripts scripts \
     --component-plist /tmp/dlmc-video-downloader-component.plist \
     --identifier com.dlmc.video-downloader \
-    --version 3.5.0 \
+    --version "$VERSION" \
     --install-location / \
     "$SCRIPT_DIR/dlmc-video-downloader.pkg"
 
 rm -f /tmp/dlmc-video-downloader-component.plist
-
-# Clean up staging
 rm -rf "$PKG_STAGE"
 
 echo ""

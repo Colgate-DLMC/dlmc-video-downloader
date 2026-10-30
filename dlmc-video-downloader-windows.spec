@@ -1,16 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec for Windows (x64)
+from PyInstaller.utils.hooks import collect_all
+
+datas_ytdlp, binaries_ytdlp, hiddenimports_ytdlp = collect_all('yt_dlp')
+
+with open('version.txt') as _vf:
+    _APP_VERSION = _vf.read().strip()
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries_ytdlp,
     datas=[
-        ('bin/yt-dlp.exe', 'bin'),
         ('bin/ffmpeg.exe', 'bin'),
         ('logo.png', '.'),
-    ],
-    hiddenimports=[],
+        ('version.txt', '.'),
+    ] + datas_ytdlp,
+    hiddenimports=hiddenimports_ytdlp,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -30,8 +36,8 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=False,        # no console window
-    icon='icon.ico',      # Windows requires .ico format
+    console=False,
+    icon='icon.ico',
     target_arch='x86_64',
 )
 

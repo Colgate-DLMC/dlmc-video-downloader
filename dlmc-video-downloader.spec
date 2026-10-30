@@ -1,15 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
+
+datas_ytdlp, binaries_ytdlp, hiddenimports_ytdlp = collect_all('yt_dlp')
+
+with open('version.txt') as _vf:
+    _APP_VERSION = _vf.read().strip()
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries_ytdlp,
     datas=[
-        ('bin/yt-dlp', 'bin'),
         ('bin/ffmpeg', 'bin'),
         ('logo.png', '.'),
-    ],
-    hiddenimports=[],
+        ('version.txt', '.'),
+    ] + datas_ytdlp,
+    hiddenimports=hiddenimports_ytdlp,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -48,7 +54,7 @@ app = BUNDLE(
     icon='icon.icns',
     bundle_identifier='com.dlmc.video-downloader',
     info_plist={
-        'CFBundleShortVersionString': '3.5.0',
+        'CFBundleShortVersionString': _APP_VERSION,
         'NSHighResolutionCapable': True,
     },
 )
