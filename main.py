@@ -420,14 +420,18 @@ except Exception:
 # ---------------------------------------------------------------------------
 # Shared output folder — LabelFrame for visual prominence
 # ---------------------------------------------------------------------------
-folder_frame = ttk.LabelFrame(root, text="Output Folder", padding=(10, 6))
+folder_frame = ttk.LabelFrame(root, text="Output Folder", padding=(10, 8))
 folder_frame.pack(fill="x", padx=15, pady=(0, 8))
 
-ttk.Button(folder_frame, text="Choose Output Folder",
-           command=choose_directory).pack(side="left", ipadx=14, ipady=4)
+tk.Button(folder_frame, text="Choose Output Folder",
+          command=choose_directory,
+          bg='#C8102E', fg='white',
+          activebackground='#a01020', activeforeground='white',
+          relief='flat', padx=18, pady=8,
+          font=('', 12, 'bold'), cursor='hand2',
+          borderwidth=0).pack(anchor="center", pady=(0, 6))
 ttk.Label(folder_frame, textvariable=output_path,
-          foreground="red", anchor="w").pack(side="left", padx=(14, 0),
-                                              fill="x", expand=True)
+          foreground="red", anchor="center").pack(fill="x")
 
 # ---------------------------------------------------------------------------
 # Notebook (tabs)
