@@ -55,9 +55,24 @@ else
     echo "ffmpeg already present and arm64-compatible."
 fi
 
+# --- deno ---
+if [ ! -f "$BIN_DIR/deno" ]; then
+    echo "Downloading deno (macOS arm64)..."
+    curl -L -o /tmp/deno.zip \
+        "https://github.com/denoland/deno/releases/latest/download/deno-aarch64-apple-darwin.zip"
+    unzip -o /tmp/deno.zip -d /tmp/deno-extract
+    mv /tmp/deno-extract/deno "$BIN_DIR/deno"
+    rm -rf /tmp/deno.zip /tmp/deno-extract
+    chmod +x "$BIN_DIR/deno"
+    echo "deno downloaded: $("$BIN_DIR/deno" --version | head -1)"
+else
+    echo "deno already present: $("$BIN_DIR/deno" --version | head -1)"
+fi
+
 echo ""
 echo "Binary check:"
 file "$BIN_DIR/ffmpeg"
+file "$BIN_DIR/deno"
 echo ""
 
 # -------------------------------------------------------

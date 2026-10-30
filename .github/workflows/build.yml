@@ -31,7 +31,7 @@ jobs:
           pip install pyinstaller
           pip install yt-dlp
 
-      - name: Download ffmpeg
+      - name: Download ffmpeg and deno
         run: |
           mkdir -p bin
           curl -L -o /tmp/ffmpeg.zip \
@@ -39,6 +39,12 @@ jobs:
           unzip -o /tmp/ffmpeg.zip -d /tmp/ffmpeg-extract
           mv /tmp/ffmpeg-extract/ffmpeg bin/ffmpeg
           chmod +x bin/ffmpeg
+
+          curl -L -o /tmp/deno.zip \
+            "https://github.com/denoland/deno/releases/latest/download/deno-aarch64-apple-darwin.zip"
+          unzip -o /tmp/deno.zip -d /tmp/deno-extract
+          mv /tmp/deno-extract/deno bin/deno
+          chmod +x bin/deno
 
       - name: Build .app with PyInstaller
         run: |
@@ -145,7 +151,7 @@ jobs:
           pip install pyinstaller
           pip install yt-dlp
 
-      - name: Download ffmpeg
+      - name: Download ffmpeg and deno
         run: |
           New-Item -ItemType Directory -Force -Path bin | Out-Null
           Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" `
@@ -153,6 +159,10 @@ jobs:
           Expand-Archive -Path "$env:TEMP\ffmpeg.zip" -DestinationPath "$env:TEMP\ffmpeg-extract" -Force
           $ffmpegBin = Get-ChildItem -Path "$env:TEMP\ffmpeg-extract" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
           Copy-Item $ffmpegBin.FullName bin\ffmpeg.exe
+
+          Invoke-WebRequest -Uri "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip" `
+                            -OutFile "$env:TEMP\deno.zip"
+          Expand-Archive -Path "$env:TEMP\deno.zip" -DestinationPath bin -Force
 
       - name: Inject version into ISS
         run: |

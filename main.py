@@ -18,9 +18,11 @@ else:
 
 _bin_ext = ".exe" if sys.platform == "win32" else ""
 
-ffmpeg_path    = os.path.join(base_dir, "bin", f"ffmpeg{_bin_ext}")
+ffmpeg_path      = os.path.join(base_dir, "bin", f"ffmpeg{_bin_ext}")
 ffmpeg_available = os.path.exists(ffmpeg_path)
-logo_path      = os.path.join(base_dir, "logo.png")
+deno_path        = os.path.join(base_dir, "bin", f"deno{_bin_ext}")
+deno_available   = os.path.exists(deno_path)
+logo_path        = os.path.join(base_dir, "logo.png")
 
 # Version — single source of truth from version.txt bundled with the app
 try:
@@ -62,6 +64,7 @@ log.info("Platform: %s  Python: %s", sys.platform, sys.version.split()[0])
 log.info("Frozen: %s  base_dir: %s", getattr(sys, 'frozen', False), base_dir)
 log.info("yt-dlp version: %s", yt_dlp.version.__version__)
 log.info("ffmpeg_path: %s  available=%s", ffmpeg_path, ffmpeg_available)
+log.info("deno_path:   %s  available=%s", deno_path, deno_available)
 
 # ---------------------------------------------------------------------------
 # Root window & shared state
@@ -90,6 +93,9 @@ def build_ytdlp_opts(output_dir, mode="quick", resolution="best",
 
     if ffmpeg_available:
         opts['ffmpeg_location'] = ffmpeg_path
+
+    if deno_available:
+        opts['js_runtimes'] = [f'deno:{deno_path}']
 
     if audio_only:
         opts['format'] = 'bestaudio'

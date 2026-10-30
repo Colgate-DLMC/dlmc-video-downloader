@@ -50,6 +50,22 @@ if (-Not (Test-Path $ffmpegPath)) {
     Write-Host "ffmpeg already present."
 }
 
+# --- deno ---
+$denoPath = Join-Path $BinDir "deno.exe"
+if (-Not (Test-Path $denoPath)) {
+    Write-Host "Downloading deno (Windows x64)..."
+    $denoZip = Join-Path $env:TEMP "deno.zip"
+    Invoke-WebRequest -Uri "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip" `
+                      -OutFile $denoZip
+    Expand-Archive -Path $denoZip -DestinationPath $BinDir -Force
+    Remove-Item $denoZip -Force
+    $denoVer = & $denoPath --version | Select-Object -First 1
+    Write-Host "deno downloaded: $denoVer"
+} else {
+    $denoVer = & $denoPath --version | Select-Object -First 1
+    Write-Host "deno already present: $denoVer"
+}
+
 # -------------------------------------------------------
 # 3. Run PyInstaller
 # -------------------------------------------------------

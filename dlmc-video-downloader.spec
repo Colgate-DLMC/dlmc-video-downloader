@@ -12,6 +12,7 @@ a = Analysis(
     binaries=binaries_ytdlp,
     datas=[
         ('bin/ffmpeg', 'bin'),
+        ('bin/deno', 'bin'),
         ('logo.png', '.'),
         ('version.txt', '.'),
     ] + datas_ytdlp,
