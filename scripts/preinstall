@@ -1,8 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# Remove previous application bundle
+# Remove current and legacy application bundles
 rm -rf /Applications/dlmc-video-downloader.app
+rm -rf /Applications/dlmc-dlp.app
+
+# Forget the legacy package receipt so pkgutil/JAMF no longer tracks it
+if pkgutil --pkg-info "com.dlmc.dlmc-dlp" &>/dev/null; then
+    pkgutil --forget "com.dlmc.dlmc-dlp" || true
+fi
 
 # Clean up stale local yt-dlp binary directory left by pre-v26.10 versions.
 # The app no longer bundles or seeds a subprocess yt-dlp binary; this folder
